@@ -2,6 +2,9 @@ package com.example.bootcamp;
 
 import java.util.UUID;
 
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +44,24 @@ public class BootcampApplication {
 		return new RestTemplate();
 	}
 
+}
+
+@Component
+@Aspect
+class LoggingAspect {
+	
+	private final Logger log = LoggerFactory.getLogger(getClass());
+	
+	@Around("execution( * com.example..*.*(..) )")
+	public Object log(ProceedingJoinPoint pjp) throws Throwable {
+		//before method invocation
+		this.log.info("before " + pjp.toString());
+		Object object = pjp.proceed();
+		this.log.info("after " + pjp.toString());
+		//after method invocation
+		
+		return object;
+	}
 }
 
 @RestController
