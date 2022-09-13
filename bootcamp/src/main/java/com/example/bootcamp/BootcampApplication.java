@@ -8,7 +8,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
 
 @SpringBootApplication
 public class BootcampApplication {
@@ -29,7 +35,31 @@ public class BootcampApplication {
 			@Value("#{ 2 > 1}")boolean proceed) {
 		return new Bar(foo, uuid, proceed );
 	}
+	
+	@Bean
+	RestTemplate restTemplate() {
+		return new RestTemplate();
+	}
 
+}
+
+@RestController
+class IsbnRestController {
+	
+	private final RestTemplate restTemplate;
+	public IsbnRestController(RestTemplate restTemplate) {
+		this.restTemplate = restTemplate;
+	}
+	
+	// http://localhost:8080/books/1449374646
+	@GetMapping("/books/{isbn}")
+	String lookUpBookByIsbn(@PathVariable("isbn") String isbn) {
+		ResponseEntity<String> exchange = this.restTemplate
+				.exchange("https://www.googleapis.com/books/v1/volumes?q=isbn:"+isbn,
+				HttpMethod.GET, null, String.class);
+		String body = exchange.getBody();
+		return body;
+	}
 }
 	
 	
