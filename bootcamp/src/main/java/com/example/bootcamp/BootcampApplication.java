@@ -1,6 +1,13 @@
 package com.example.bootcamp;
 
+import java.io.IOException;
 import java.util.UUID;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -14,6 +21,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +52,30 @@ public class BootcampApplication {
 		return new RestTemplate();
 	}
 
+}
+
+@Component
+class LoggingFilter implements javax.servlet.Filter {
+	
+	private final Logger log = LoggerFactory.getLogger(getClass());
+	
+	@Override
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+			throws IOException, ServletException {
+		Assert.isTrue(request instanceof HttpServletRequest, "this assumes you have a HTTP request");
+//		Assert.isInstanceOf(HttpServletRequest.class, request, "this assumes you have a HTTP request");
+		
+		HttpServletRequest httpServletRequest= HttpServletRequest.class.cast(request);
+		String uri = httpServletRequest.getRequestURI();
+		this.log.info("new request for "+ uri+".");
+		
+		//proceed with request now just as proceedingjoinpoint
+		long time = System.currentTimeMillis();
+		chain.doFilter(request, response);
+		long delta = System.currentTimeMillis() - time;
+		this.log.info("request for "+ uri+ " took "+ delta+ " ms.");
+	}
+	
 }
 
 @Component
