@@ -13,6 +13,7 @@ import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.actuate.audit.InMemoryAuditEventRepository;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,6 +37,11 @@ import lombok.extern.slf4j.Slf4j;
 
 @SpringBootApplication
 public class PasswordEncodingAndMigrationApplication {
+	
+	@Bean
+	public InMemoryAuditEventRepository repository(){
+	 return new InMemoryAuditEventRepository();
+	}
 	
 //	@Bean
 	PasswordEncoder oldPasswordEncoder() {
