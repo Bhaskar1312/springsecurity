@@ -13,9 +13,12 @@ import javax.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
+import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -48,6 +51,23 @@ public class AuthorizationApplication {
 
 }
 
+@Order(1) // two  beans of websecurityconfigureradapter - order 100
+@Configuration
+@EnableWebSecurity
+class ActutatorSecurityConfiguration extends WebSecurityConfigurerAdapter {
+	@Override
+	protected void configure(HttpSecurity http) throws Exception {
+		//@formatter:off
+		http
+			.requestMatcher( EndpointRequest.toAnyEndpoint()) //actuator endpoints
+			.authorizeRequests()
+				.requestMatchers(EndpointRequest.to(HealthEndpoint.class)).permitAll()
+				.anyRequest().authenticated()
+			.and()
+			.httpBasic();
+		//@formatter:off
+	}
+}
 @Configuration
 @EnableWebSecurity
 class SecurityConfiguration extends WebSecurityConfigurerAdapter {
