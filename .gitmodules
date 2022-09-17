@@ -1,0 +1,3 @@
+[submodule "common-attacks"]
+	path = common-attacks
+	url = git@github.com:spring-security-livelessons/common-attacks.git
