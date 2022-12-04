@@ -7,8 +7,14 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.security.access.annotation.Secured;
@@ -19,11 +25,13 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.core.userdetails.jdbc.JdbcDaoImpl;
+import org.springframework.security.data.repository.query.SecurityEvaluationContextExtension;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +39,7 @@ import javax.annotation.security.RolesAllowed;
 import javax.persistence.*;
 import javax.sql.DataSource;
 import javax.transaction.Transactional;
+import java.security.Principal;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -49,6 +58,11 @@ public class MethodSecurityApplication {
                 .setType(EmbeddedDatabaseType.H2)
                 .addScript(JdbcDaoImpl.DEFAULT_USER_SCHEMA_DDL_LOCATION)
                 .build();
+    }
+
+    @Bean
+    SecurityEvaluationContextExtension securityEvaluationContextEvaluation() {
+        return new SecurityEvaluationContextExtension();
     }
 
     public static void main(String[] args) {
@@ -94,12 +108,15 @@ class Runner implements ApplicationRunner {
 
         User bhaskar = this.userRepository.save(new User("bhaskar", "password", admin, user));
         Message messageForBhaskar = this.messageRepository.save(new Message("Hi Bhaskar!", bhaskar));
+        Message msg1 = this.messageRepository.save(new Message("Hi 1", bhaskar));
+        Message msg2 = this.messageRepository.save(new Message("Hi 2", bhaskar));
 //		admin.getUsers().add(bhaskar);
-        admin.adduser(bhaskar);
+//        admin.adduser(bhaskar);
 
         User jlong = this.userRepository.save(new User("jlong", "password", user));
         Message messageFoJosh = this.messageRepository.save(new Message("Hey Josh!", jlong));
-        admin.adduser(jlong);
+//        admin.adduser(jlong);
+        this.messageRepository.save(new Message("Hi 3", jlong));
 
         log.info("Bhaskar: ", bhaskar.toString());
         log.info("josh: ", jlong);
@@ -114,6 +131,23 @@ class Runner implements ApplicationRunner {
 
         attemptAccess(bhaskar.getEmail(), jlong.getEmail(), messageFoJosh.getId(), id->this.messageRepository.findByIdPostAuthorize(id));
 
+
+        System.out.println("Filtering data at query level");
+        authenticate(bhaskar.getEmail());
+        checkSPEL_Temp();
+        this.messageRepository.findMessagesFor(PageRequest.of(0, 5)).forEach(log::info);
+
+        authenticate(jlong.getEmail());
+        this.messageRepository.findMessagesFor(PageRequest.of(0, 5)).forEach(log::info);
+
+    }
+
+    void checkSPEL_Temp() {
+        System.out.println(">>"+ ((UserRepositoryUserDetailsService.UserUserDetails)SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUser().getId());
+//        ExpressionParser parser = new SpelExpressionParser();
+//        Expression exp = parser.parseExpression("?#{ principal?.user?.id }");
+//        String message = (String) exp.getValue();
+//        System.out.println("spel"+message);
     }
 
     private void attemptAccess(String adminUser, String regularUser, Long msgId, Function<Long, Message> fn) {
@@ -231,6 +265,9 @@ interface MessageRepository extends JpaRepository<Message, Long> {
     @PostAuthorize("@authz.check( returnObject, principal?.user )") // auth should happen after the method
     Message findByIdPostAuthorize(Long id); // or name it findByIdBeanCheck
 
+    @Query("select m from Message m where m.toUser.id = ?#{ principal?.user?.id }") // ? - for if in case null
+    Page<Message> findMessagesFor(Pageable pageable);  //security/filtering at query level instead of after result like PostAuthorize
+
 }
 
 @Log4j2
@@ -262,6 +299,7 @@ class Message {
     private String text;
 
     @OneToOne
+    @Getter
     private User toUser;
 
     public Message(String text, User to) {
@@ -298,6 +336,9 @@ class User {
         this.authorities.addAll(authorities);
     }
 
+    public Long getId() {
+        return id;
+    }
 
     public String getEmail() {
         return this.email;
@@ -345,10 +386,6 @@ class Authority {
     public Authority(String authority, Set<User> users) {
         this.authority = authority;
         this.users.addAll(users);
-    }
-
-    public String getAuthority() {
-        return this.authority;
     }
 
     public Authority(String authority) {
