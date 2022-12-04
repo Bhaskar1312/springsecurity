@@ -12,6 +12,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.access.prepost.PostAuthorize;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.core.Authentication;
@@ -108,12 +110,20 @@ class Runner implements ApplicationRunner {
 
         attemptAccess(bhaskar.getEmail(), jlong.getEmail(), messageForBhaskar.getId(), id->this.messageRepository.findByIdSecured(id));
 
+        attemptAccess(bhaskar.getEmail(), jlong.getEmail(), messageForBhaskar.getId(), id->this.messageRepository.findByIdPreAuthorize(id));
+
+        attemptAccess(bhaskar.getEmail(), jlong.getEmail(), messageFoJosh.getId(), id->this.messageRepository.findByIdPostAuthorize(id));
+
     }
 
     private void attemptAccess(String adminUser, String regularUser, Long msgId, Function<Long, Message> fn) {
         authenticate(adminUser);
 
-        log.info("result for bhaskar: " + fn.apply(msgId));
+        try {
+            log.info("result for bhaskar: " + fn.apply(msgId));
+        } catch (Exception e) {
+            log.error(">>>Error for admin user<<<"+e.getMessage());
+        }
 
         try {
             authenticate(regularUser);
@@ -156,6 +166,10 @@ class UserRepositoryUserDetailsService implements UserDetailsService {
                     .stream()
                     .map(au -> new SimpleGrantedAuthority("ROLE_"+au.getAuthority()))
                     .collect(Collectors.toSet());
+        }
+
+        public User getUser() {
+            return user;
         }
 
         @Override
@@ -208,6 +222,24 @@ interface MessageRepository extends JpaRepository<Message, Long> {
     @Query(QUERY)
     @Secured("ROLE_ADMIN")
     Message findByIdSecured(Long id);
+
+    @Query(QUERY)
+    @PreAuthorize("hasRole('ADMIN')") // auth happens before going to this method
+    Message findByIdPreAuthorize(Long id);
+
+    @Query(QUERY)
+    @PostAuthorize("@authz.check( returnObject, principal?.user )") // auth should happen after the method
+    Message findByIdPostAuthorize(Long id); // or name it findByIdBeanCheck
+
+}
+
+@Log4j2
+@Service("authz") //authz bean
+class AuthService {
+    public boolean check(Message message, User user) {
+        log.info("checking "+user.getEmail()+"..");
+        return message.getToUser().getId().equals(user.getId());
+    }
 }
 
 interface UserRepository extends JpaRepository<User, Long> {
