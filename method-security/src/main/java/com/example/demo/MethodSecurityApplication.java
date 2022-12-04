@@ -1,50 +1,35 @@
 package com.example.demo;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import javax.annotation.security.RolesAllowed;
-import javax.persistence.CascadeType;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.JoinTable;
-import javax.persistence.ManyToMany;
-import javax.persistence.OneToOne;
-import javax.transaction.Transactional;
-
+import lombok.*;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.core.userdetails.jdbc.JdbcDaoImpl;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-import lombok.extern.log4j.Log4j2;
+import javax.annotation.security.RolesAllowed;
+import javax.persistence.*;
+import javax.sql.DataSource;
+import javax.transaction.Transactional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @EnableGlobalMethodSecurity(
         prePostEnabled = true,
@@ -53,6 +38,14 @@ import lombok.extern.log4j.Log4j2;
 )
 @SpringBootApplication
 public class MethodSecurityApplication {
+
+    @Bean
+    DataSource dataSource() {
+        return new EmbeddedDatabaseBuilder()
+                .setType(EmbeddedDatabaseType.H2)
+                .addScript(JdbcDaoImpl.DEFAULT_USER_SCHEMA_DDL_LOCATION)
+                .build();
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(MethodSecurityApplication.class, args);
@@ -84,6 +77,7 @@ class Runner implements ApplicationRunner {
         UserDetails user = this.userDetailsService.loadUserByUsername(username);
         Authentication authentication = new UsernamePasswordAuthenticationToken(user,
                 user.getPassword(), user.getAuthorities());
+        log.info(">>>"+user.getUsername()+" " + user.getPassword());
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
@@ -108,16 +102,16 @@ class Runner implements ApplicationRunner {
 
         log.info("bhaskar: " + bhaskar.email);
 
-//        authenticate(bhaskar.getEmail());
+        authenticate(bhaskar.getEmail());
 
-//        log.info("result for bhaskar: " + messageRepository.findByIdRolesAllowed(messageForBhaskar.getId()));
+        log.info("result for bhaskar: " + messageRepository.findByIdRolesAllowed(messageForBhaskar.getId()));
 
-//        try {
-//            authenticate(jlong.getEmail());
-//            log.info("result for josh: " + messageRepository.findByIdRolesAllowed(messageFoJosh.getId()));
-//        } catch (Exception e) {
-//            log.error("oops! could not obtain result for jlong");
-//        }
+        try {
+            authenticate(jlong.getEmail());
+            log.info("result for josh: " + messageRepository.findByIdRolesAllowed(messageFoJosh.getId()));
+        } catch (Exception e) {
+            log.error("oops! could not obtain result for jlong");
+        }
 
     }
 
@@ -234,7 +228,8 @@ class Message {
 
 }
 
-@Entity(name = "`user`") //user is restricted keyword in h2
+@Entity//(name = "`user`") //user is restricted keyword in h2
+@Table(name = "`user`")
 @AllArgsConstructor
 @NoArgsConstructor
 @EqualsAndHashCode(exclude = "authorities") // so that toString doesn't recursively try to print
