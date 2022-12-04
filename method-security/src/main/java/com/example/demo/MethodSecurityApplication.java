@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.core.Authentication;
@@ -29,6 +30,7 @@ import javax.persistence.*;
 import javax.sql.DataSource;
 import javax.transaction.Transactional;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @EnableGlobalMethodSecurity(
@@ -102,17 +104,23 @@ class Runner implements ApplicationRunner {
 
         log.info("bhaskar: " + bhaskar.email);
 
-        authenticate(bhaskar.getEmail());
+        attemptAccess(bhaskar.getEmail(), jlong.getEmail(), messageForBhaskar.getId(), id->this.messageRepository.findByIdRolesAllowed(id));
 
-        log.info("result for bhaskar: " + messageRepository.findByIdRolesAllowed(messageForBhaskar.getId()));
+        attemptAccess(bhaskar.getEmail(), jlong.getEmail(), messageForBhaskar.getId(), id->this.messageRepository.findByIdSecured(id));
+
+    }
+
+    private void attemptAccess(String adminUser, String regularUser, Long msgId, Function<Long, Message> fn) {
+        authenticate(adminUser);
+
+        log.info("result for bhaskar: " + fn.apply(msgId));
 
         try {
-            authenticate(jlong.getEmail());
-            log.info("result for josh: " + messageRepository.findByIdRolesAllowed(messageFoJosh.getId()));
+            authenticate(regularUser);
+            log.info("result for josh: " + fn.apply(msgId));
         } catch (Exception e) {
             log.error("oops! could not obtain result for jlong");
         }
-
     }
 
 }
@@ -196,6 +204,10 @@ interface MessageRepository extends JpaRepository<Message, Long> {
     @Query(QUERY)
     @RolesAllowed("ROLE_ADMIN")
     Message findByIdRolesAllowed(Long id);
+
+    @Query(QUERY)
+    @Secured("ROLE_ADMIN")
+    Message findByIdSecured(Long id);
 }
 
 interface UserRepository extends JpaRepository<User, Long> {
