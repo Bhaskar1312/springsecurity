@@ -7,11 +7,16 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -44,6 +49,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@EnableJpaAuditing //look for bean AuditorAware
 @EnableGlobalMethodSecurity(
         prePostEnabled = true,
         jsr250Enabled = true,
@@ -52,6 +58,20 @@ import java.util.stream.Collectors;
 @SpringBootApplication
 public class MethodSecurityApplication {
 
+    @Bean
+    AuditorAware<String> auditor() {
+        return new AuditorAware<String>() {
+            @Override
+            public Optional<String> getCurrentAuditor() {
+                SecurityContext context = SecurityContextHolder.getContext();
+                Authentication authentication = context.getAuthentication();
+                if(authentication != null) {
+                    return Optional.ofNullable(authentication.getName());
+                }
+                return Optional.empty();
+            }
+        };
+    }
     @Bean
     DataSource dataSource() {
         return new EmbeddedDatabaseBuilder()
@@ -139,6 +159,9 @@ class Runner implements ApplicationRunner {
 
         authenticate(jlong.getEmail());
         this.messageRepository.findMessagesFor(PageRequest.of(0, 5)).forEach(log::info);
+
+
+        log.info("audited: "+this.messageRepository.save(new Message("this is a test for audit", bhaskar))); //prints jlong
 
     }
 
@@ -291,6 +314,7 @@ interface AuthorityRepository extends JpaRepository<Authority, Long> {
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
+@EntityListeners(AuditingEntityListener.class)
 class Message {
     @Id
     @GeneratedValue //(strategy = GenerationType.IDENTITY)
@@ -301,6 +325,13 @@ class Message {
     @OneToOne
     @Getter
     private User toUser;
+
+    @CreatedBy
+    private String createdBy;
+
+    @CreatedDate
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date created;
 
     public Message(String text, User to) {
         this.text = text;
