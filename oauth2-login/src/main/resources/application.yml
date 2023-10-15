@@ -6,5 +6,11 @@ spring:
           github:
             client-id: 4285c2c6a6bb987a95b6
             client-secret: 7bed89acd1666d01370695a0e2ecb0cbfd2757b5
+          keycloak:
+            client-id: created_on_docker
+            client-secret:
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:9999/auth/realms/demo
 
-
+# docker run --name keycloak_dev -p 9999:9999 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:latest start-dev --http-port=9999
