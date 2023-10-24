@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Bank</title>
+</head>
+<body>
+    <div>
+        <h1>Balance</h1>
+        <p>Your balance is <span id="balance" th:text="${balance}"></span></p>
+
+        <h1>Transfer</h1>
+        <form th:action="@{/transfer}" method="post">
+            <input type="text" name="amount" />
+            <input type="submit" value="Transfer" />
+        </form>
+
+    </div>
+</body>
+</html>
